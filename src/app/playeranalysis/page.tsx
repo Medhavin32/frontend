@@ -19,16 +19,17 @@ import {
 } from 'recharts';
 
 interface PlayerMetrics {
-  id: string;
-  playerProfileId: string;
+  id?: string;
+  playerProfileId?: string;
   speed: number;
   dribbling: number;
   passing: number;
   shooting: number;
-  agility: number;
   stamina: number;
-  intelligence: number;
   createdAt: string;
+  distanceCovered?: number;
+  topSpeed?: number;
+  overallAccuracy?: number;
 }
 
 export default function PlayerAnalysis() {
@@ -63,29 +64,66 @@ export default function PlayerAnalysis() {
     );
   }
 
+  // Helper function to safely format numbers
+  const safeFormatNumber = (value: number | undefined | null, decimals: number = 1): string => {
+    if (typeof value !== 'number' || isNaN(value)) {
+      return '0.0';
+    }
+    return value.toFixed(decimals);
+  };
+
+  // Ensure all metrics have default values to prevent undefined errors
+  const safeMetrics = {
+    speed: metrics.speed ?? 0,
+    dribbling: metrics.dribbling ?? 0,
+    passing: metrics.passing ?? 0,
+    shooting: metrics.shooting ?? 0,
+    stamina: metrics.stamina ?? 0,
+    distanceCovered: metrics.distanceCovered ?? 0,
+    topSpeed: metrics.topSpeed ?? 0,
+    overallAccuracy: metrics.overallAccuracy ?? 0,
+    createdAt: metrics.createdAt ?? new Date().toISOString()
+  };
+
+  // Compute overall rating from raw metrics
+  const overallRaw =
+    (safeMetrics.speed +
+      safeMetrics.dribbling * 10 +
+      safeMetrics.passing * 10 +
+      safeMetrics.shooting * 10 +
+      safeMetrics.stamina +
+      safeMetrics.distanceCovered / 10) / 5;
+
+  // Clamp raw rating to 0–100
+  const overallClamped = Math.max(
+    0,
+    Math.min(100, isNaN(overallRaw) ? 0 : overallRaw)
+  );
+
+  // Map to display range 70–80
+  const overallRating = 70 + (overallClamped / 100) * 10;
+
   // Prepare data for radar chart
   const radarData = [
     {
       name: 'Performance Metrics',
-      speed: metrics.speed - 40,
-      dribbling: metrics.dribbling * 10, // Scale to match other metrics
-      passing: metrics.passing * 10,
-      shooting: metrics.shooting * 10,
-      agility: metrics.agility * 10,
-      stamina: metrics.stamina,
-      intelligence: metrics.intelligence * 10
+      speed: safeMetrics.speed - 40,
+      dribbling: safeMetrics.dribbling * 10, // Scale to match other metrics
+      passing: safeMetrics.passing * 10,
+      shooting: safeMetrics.shooting * 10,
+      stamina: safeMetrics.stamina,
+      distance: safeMetrics.distanceCovered
     }
   ];
 
   // Prepare data for bar chart
   const barData = [
-    { name: 'Speed', value: metrics.speed - 40},
-    { name: 'Dribbling', value: metrics.dribbling * 10 },
-    { name: 'Passing', value: metrics.passing * 10 },
-    { name: 'Shooting', value: metrics.shooting * 10 },
-    { name: 'Agility', value: metrics.agility * 10 },
-    { name: 'Stamina', value: metrics.stamina },
-    { name: 'Intelligence', value: metrics.intelligence * 10 }
+    { name: 'Speed', value: safeMetrics.speed - 40},
+    { name: 'Dribbling', value: safeMetrics.dribbling * 10 },
+    { name: 'Passing', value: safeMetrics.passing * 10 },
+    { name: 'Shooting', value: safeMetrics.shooting * 10 },
+    { name: 'Stamina', value: safeMetrics.stamina },
+    { name: 'Distance', value: safeMetrics.distanceCovered }
   ];
 
   return (
@@ -94,7 +132,7 @@ export default function PlayerAnalysis() {
         <header className="mb-8">
           <h1 className="text-3xl font-bold mb-2">Player Performance Analysis</h1>
           <p className="text-zinc-400">
-            Based on video analysis completed on {new Date(metrics.createdAt).toLocaleDateString()}
+            Based on video analysis completed on {new Date(safeMetrics.createdAt).toLocaleDateString()}
           </p>
         </header>
 
@@ -194,51 +232,64 @@ export default function PlayerAnalysis() {
           
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div className="bg-zinc-800 p-4 rounded-lg text-center">
-              <div className="text-3xl font-bold text-red-500 mb-2">{metrics.speed.toFixed(1)}</div>
+              <div className="text-3xl font-bold text-red-500 mb-2">
+                {safeFormatNumber(safeMetrics.speed)}
+              </div>
               <div className="text-zinc-400">Speed</div>
             </div>
             
             <div className="bg-zinc-800 p-4 rounded-lg text-center">
-              <div className="text-3xl font-bold text-green-500 mb-2">{metrics.dribbling}</div>
+              <div className="text-3xl font-bold text-green-500 mb-2">
+                {safeFormatNumber(safeMetrics.dribbling)}
+              </div>
               <div className="text-zinc-400">Dribbling</div>
             </div>
             
             <div className="bg-zinc-800 p-4 rounded-lg text-center">
-              <div className="text-3xl font-bold text-blue-500 mb-2">{metrics.passing}</div>
+              <div className="text-3xl font-bold text-blue-500 mb-2">
+                {safeFormatNumber(safeMetrics.passing)}
+              </div>
               <div className="text-zinc-400">Passing</div>
             </div>
             
             <div className="bg-zinc-800 p-4 rounded-lg text-center">
-              <div className="text-3xl font-bold text-yellow-500 mb-2">{metrics.shooting}</div>
+              <div className="text-3xl font-bold text-yellow-500 mb-2">
+                {safeFormatNumber(safeMetrics.shooting)}
+              </div>
               <div className="text-zinc-400">Shooting</div>
             </div>
             
             <div className="bg-zinc-800 p-4 rounded-lg text-center">
-              <div className="text-3xl font-bold text-purple-500 mb-2">{metrics.agility}</div>
-              <div className="text-zinc-400">Agility</div>
-            </div>
-            
-            <div className="bg-zinc-800 p-4 rounded-lg text-center">
-              <div className="text-3xl font-bold text-cyan-500 mb-2">{metrics.stamina.toFixed(1)}</div>
+              <div className="text-3xl font-bold text-cyan-500 mb-2">
+                {safeFormatNumber(safeMetrics.stamina)}
+              </div>
               <div className="text-zinc-400">Stamina</div>
             </div>
             
             <div className="bg-zinc-800 p-4 rounded-lg text-center">
-              <div className="text-3xl font-bold text-pink-500 mb-2">{metrics.intelligence}</div>
-              <div className="text-zinc-400">Intelligence</div>
+              <div className="text-3xl font-bold text-lime-400 mb-2">
+                {safeFormatNumber(safeMetrics.topSpeed)} km/h
+              </div>
+              <div className="text-zinc-400">Top Speed</div>
+            </div>
+
+            <div className="bg-zinc-800 p-4 rounded-lg text-center">
+              <div className="text-3xl font-bold text-orange-400 mb-2">
+                {safeFormatNumber(safeMetrics.distanceCovered)} m
+              </div>
+              <div className="text-zinc-400">Distance Covered (m)</div>
+            </div>
+
+            <div className="bg-zinc-800 p-4 rounded-lg text-center">
+              <div className="text-3xl font-bold text-teal-400 mb-2">
+                {safeFormatNumber(safeMetrics.overallAccuracy)}%
+              </div>
+              <div className="text-zinc-400">Tracking Accuracy</div>
             </div>
             
             <div className="bg-zinc-800 p-4 rounded-lg text-center">
               <div className="text-3xl font-bold text-white mb-2">
-                {(
-                  (metrics.speed + 
-                  metrics.dribbling * 10 + 
-                  metrics.passing * 10 + 
-                  metrics.shooting * 10 + 
-                  metrics.agility * 10 + 
-                  metrics.stamina + 
-                  metrics.intelligence * 10) / 7
-                ).toFixed(1)}
+                {safeFormatNumber(overallRating)}
               </div>
               <div className="text-zinc-400">Overall Rating</div>
             </div>
@@ -256,8 +307,8 @@ export default function PlayerAnalysis() {
             <div>
               <h3 className="font-medium text-white">Strengths:</h3>
               <ul className="list-disc list-inside text-zinc-400 mt-2">
-                <li>Excellent stamina level at {metrics.stamina.toFixed(1)}</li>
-                <li>Good speed at {metrics.speed.toFixed(1)}</li>
+                <li>Excellent stamina level at {safeFormatNumber(safeMetrics.stamina)}</li>
+                <li>Good speed at {safeFormatNumber(safeMetrics.speed)}</li>
                 <li>Balanced technical skills across dribbling, passing, and shooting</li>
               </ul>
             </div>
@@ -265,11 +316,10 @@ export default function PlayerAnalysis() {
             <div>
               <h3 className="font-medium text-white">Areas for Improvement:</h3>
               <ul className="list-disc list-inside text-zinc-400 mt-2">
-                {metrics.dribbling < 7 && <li>Work on close ball control and dribbling techniques</li>}
-                {metrics.passing < 7 && <li>Improve passing accuracy and decision-making</li>}
-                {metrics.shooting < 7 && <li>Practice shooting precision and power</li>}
-                {metrics.agility < 7 && <li>Focus on agility training to improve quick direction changes</li>}
-                {metrics.intelligence < 7 && <li>Develop tactical awareness and positioning</li>}
+                {safeMetrics.dribbling < 7 && <li>Work on close ball control and dribbling techniques</li>}
+                {safeMetrics.passing < 7 && <li>Improve passing accuracy and decision-making</li>}
+                {safeMetrics.shooting < 7 && <li>Practice shooting precision and power</li>}
+                {/* Additional improvement suggestions can be added here if needed */}
               </ul>
             </div>
             

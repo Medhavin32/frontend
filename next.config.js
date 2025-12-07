@@ -1,6 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  output: 'export',
+  // Removed 'output: export' to support dynamic routes
+  // If you need static export, consider using ISR or removing dynamic routes
   distDir: 'out',
   images: {
     unoptimized: true,
@@ -33,12 +34,8 @@ const nextConfig = {
       },
     ],
   },
-  experimental: {
-    serverActions: true,
-  },
-  env: {
-    PORT: 3001
-  }
+  // Note: serverActions is enabled by default in Next.js 15
+  // env.PORT should be set in .env file, not in next.config.js
 };
 
 module.exports = nextConfig;

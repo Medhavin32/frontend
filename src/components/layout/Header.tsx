@@ -68,14 +68,6 @@ export default function Header() {
     router.push('/');
   };
 
-  const onClickDashboard = () => {
-    // Redirect to appropriate dashboard based on user role
-    if (userRole === 'scout') {
-      router.push('/scout/dashboard');
-    } else if (userRole === 'player') {
-      router.push('/player/dashboard');
-    }
-  };
 
   return (
     <header className="fixed top-0 left-0 right-0 bg-zinc-950/90 backdrop-blur-sm z-50 border-b border-zinc-800">
@@ -88,13 +80,16 @@ export default function Header() {
         </div>
 
         <nav className="flex items-center gap-8">
-          <Link
-            href="/"
-            className="text-white font-medium group relative transition-colors duration-300 py-1"
-          >
-            HOME
-            <span className="absolute bottom-0 left-0 w-full h-0.5 bg-red-600 transform scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-left"></span>
-          </Link>
+          {/* Only show HOME link for players */}
+          {userRole !== 'scout' && (
+            <Link
+              href="/"
+              className="text-white font-medium group relative transition-colors duration-300 py-1"
+            >
+              HOME
+              <span className="absolute bottom-0 left-0 w-full h-0.5 bg-red-600 transform scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-left"></span>
+            </Link>
+          )}
           <Link
             href="/features"
             className="text-white font-medium group relative transition-colors duration-300 py-1"
@@ -133,24 +128,14 @@ export default function Header() {
               </Button>
             </>
           ) : (
-            <>
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                className="px-4 rounded-full bg-green-600 hover:bg-green-700 text-white transition-colors duration-300 mr-2"
-                onClick={onClickDashboard}
-              >
-                DASHBOARD
-              </Button>
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                className="px-4 rounded-full bg-red-600 hover:bg-red-700 text-white transition-colors duration-300"
-                onClick={onClickLogout}
-              >
-                LOGOUT
-              </Button>
-            </>
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              className="px-4 rounded-full bg-red-600 hover:bg-red-700 text-white transition-colors duration-300"
+              onClick={onClickLogout}
+            >
+              LOGOUT
+            </Button>
           )}
         </div>
       </div>

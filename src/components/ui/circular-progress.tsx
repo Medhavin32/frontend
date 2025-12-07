@@ -22,21 +22,43 @@ export function CircularProgress({
   label,
   className,
 }: CircularProgressProps) {
-  const [progress, setProgress] = useState(0);
+  const [progress, setProgress] = useState(value);
+  const [isMounted, setIsMounted] = useState(false);
 
   // Calculate circle properties
   const radius = (size - strokeWidth) / 2;
   const circumference = radius * 2 * Math.PI;
   const strokeDashoffset = circumference - (progress / 100) * circumference;
 
-  // Animate the progress
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setProgress(value);
-    }, 100);
+  // Pre-calculate dot positions to ensure consistency
+  const dots = Array.from({ length: 12 }).map((_, i) => {
+    const angle = (i * 30 * Math.PI) / 180;
+    const dotX = (size / 2) + (radius + 4) * Math.cos(angle);
+    const dotY = (size / 2) + (radius + 4) * Math.sin(angle);
+    
+    return {
+      x: Math.round(dotX * 100) / 100,
+      y: Math.round(dotY * 100) / 100,
+      opacity: i % 3 === 0 ? 1 : 0,
+    };
+  });
 
-    return () => clearTimeout(timer);
-  }, [value]);
+  // Handle mounting to avoid hydration issues
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
+  // Animate the progress only after mounting
+  useEffect(() => {
+    if (isMounted) {
+      setProgress(0);
+      const timer = setTimeout(() => {
+        setProgress(value);
+      }, 100);
+
+      return () => clearTimeout(timer);
+    }
+  }, [value, isMounted]);
 
   return (
     <div className={cn("relative flex items-center justify-center", className)} style={{ width: size, height: size }}>
@@ -69,23 +91,17 @@ export function CircularProgress({
 
       {/* Red dots around the circle */}
       <div className="absolute inset-0 flex items-center justify-center">
-        {Array.from({ length: 12 }).map((_, i) => {
-          const angle = (i * 30 * Math.PI) / 180;
-          const dotX = (size / 2) + (radius + 4) * Math.cos(angle);
-          const dotY = (size / 2) + (radius + 4) * Math.sin(angle);
-
-          return (
-            <div
-              key={i}
-              className="absolute h-1.5 w-1.5 rounded-full bg-red-500"
-              style={{
-                left: `${dotX}px`,
-                top: `${dotY}px`,
-                opacity: i % 3 === 0 ? 1 : 0,
-              }}
-            />
-          );
-        })}
+        {dots.map((dot, i) => (
+          <div
+            key={i}
+            className="absolute h-1.5 w-1.5 rounded-full bg-red-500"
+            style={{
+              left: `${dot.x}px`,
+              top: `${dot.y}px`,
+              opacity: dot.opacity,
+            }}
+          />
+        ))}
       </div>
 
       {/* Center text */}

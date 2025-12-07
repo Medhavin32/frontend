@@ -4,11 +4,11 @@ import { cn } from "@/lib/utils";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  Home, Upload, BarChart2, Users, Settings,
+  Home, Upload, BarChart2, Users,
   User, HelpCircle, ChevronRight, ChevronLeft
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 interface NavItemProps {
   href: string;
@@ -40,17 +40,65 @@ function NavItem({ href, icon, label, isActive, isCollapsed, onClick }: NavItemP
 export default function Sidebar() {
   const pathname = usePathname();
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const [userRole, setUserRole] = useState<string | null>(null);
 
-  const navItems = [
+  // Get user role from localStorage
+  useEffect(() => {
+    const checkUserRole = () => {
+      const user = localStorage.getItem('user');
+      if (user) {
+        try {
+          const userData = JSON.parse(user);
+          setUserRole(userData.role?.toLowerCase() || null);
+        } catch (error) {
+          setUserRole(null);
+        }
+      } else {
+        setUserRole(null);
+      }
+    };
+
+    checkUserRole();
+    // Listen for storage changes (useful for multi-tab sync)
+    window.addEventListener('storage', checkUserRole);
+    
+    return () => {
+      window.removeEventListener('storage', checkUserRole);
+    };
+  }, []);
+
+  // Player-specific navigation items (Home is only for players)
+  const playerNavItems = [
     { href: "/", icon: <Home size={20} />, label: "Home" },
+    { href: "/player/dashboard", icon: <BarChart2 size={20} />, label: "Dashboard" },
     { href: "/upload", icon: <Upload size={20} />, label: "Upload" },
-    { href: "/analytics", icon: <BarChart2 size={20} />, label: "Scout Dashboard" },
-    { href: "/team", icon: <Users size={20} />, label: "Team" },
+  ];
+
+  // Scout-specific navigation items
+  const scoutNavItems = [
+    { href: "/scout/dashboard", icon: <BarChart2 size={20} />, label: "Scout Dashboard" },
+  ];
+
+  // Admin-specific navigation items
+  const adminNavItems = [
+    { href: "/admin/dashboard", icon: <BarChart2 size={20} />, label: "Admin Dashboard" },
+  ];
+
+  // Common navigation items
+  const commonNavItems = [
+    { href: "/leaderboard", icon: <Users size={20} />, label: "Leaderboard" },
+  ];
+
+  // Build navigation items based on user role
+  const navItems = [
+    ...(userRole === 'player' ? playerNavItems : []),
+    ...(userRole === 'scout' ? scoutNavItems : []),
+    ...(userRole === 'admin' ? adminNavItems : []),
+    ...commonNavItems,
   ];
 
   const secondaryNavItems = [
     { href: "/profile", icon: <User size={20} />, label: "Profile" },
-    { href: "/settings", icon: <Settings size={20} />, label: "Settings" },
     { href: "/help", icon: <HelpCircle size={20} />, label: "Help & Support" },
   ];
 

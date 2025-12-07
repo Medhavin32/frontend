@@ -6,9 +6,10 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import axios from "axios";
 import { toast } from "sonner";
+import { Shield } from "lucide-react";
 
 export default function Login() {
-  const [selectedRole, setSelectedRole] = useState<'scout' | 'player' | null>(null);
+  const [selectedRole, setSelectedRole] = useState<'scout' | 'player' | 'admin' | null>(null);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -23,11 +24,13 @@ export default function Login() {
       try {
         const userData = JSON.parse(user);
         
-        // For players, check if profile is complete
+        // For players, check profile completion
         if (userData.role.toLowerCase() === 'player') {
-          checkPlayerProfile(token);
+          checkProfileCompletion(token);
         } else if (userData.role.toLowerCase() === 'scout') {
-          router.push('/');
+          router.push('/scout/dashboard');
+        } else if (userData.role.toLowerCase() === 'admin') {
+          router.push('/admin/dashboard');
         }
       } catch (error) {
         // Clear invalid localStorage data
@@ -35,26 +38,48 @@ export default function Login() {
         localStorage.removeItem('user');
       }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router]);
 
-  // Check player profile completion
-  const checkPlayerProfile = async (token: string) => {
+  // Check profile completion for players
+  const checkProfileCompletion = async (token: string) => {
     const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3000';
 
     try {
-      const response = await axios.get(`${backendUrl}/api/player/profile`, {
+      const response = await axios.get(`${backendUrl}/api/user/profile-completion`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
       });
 
-      // If we received a response, the player data exists in the database
-      // Redirect to home page regardless of profile completeness
+      const { completionPercentage, verificationStatus } = response.data;
+
+      // If profile is not 100% complete, redirect to profile completion page
+      if (completionPercentage < 100) {
+        router.push('/profile-completion');
+        return;
+      }
+
+      // If profile is complete but not verified, show message and redirect
+      if (verificationStatus !== 'VERIFIED') {
+        toast.info('Your profile is pending verification. You can view your dashboard but cannot upload videos yet.');
+        router.push('/');
+        return;
+      }
+
+      // Profile is complete and verified, go to dashboard
       router.push('/');
     } catch (error) {
-      // Only if the API request completely fails, direct to profile page
-      console.error('Profile check failed:', error);
-      router.push('/playerprofile');
+      console.error('Profile completion check failed:', error);
+      // If API fails, try to check if player profile exists
+      try {
+        await axios.get(`${backendUrl}/api/player/profile`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        router.push('/profile-completion');
+      } catch {
+        router.push('/playerprofile');
+      }
     }
   };
 
@@ -106,10 +131,12 @@ export default function Login() {
 
       // Redirect based on role
       if (selectedRole === 'scout') {
-        router.push('/');
+        router.push('/scout/dashboard');
       } else if (selectedRole === 'player') {
-        // Check player profile
-        checkPlayerProfile(token);
+        // Check profile completion for players
+        checkProfileCompletion(token);
+      } else if (selectedRole === 'admin') {
+        router.push('/admin/dashboard');
       }
     } catch (error) {
       // Comprehensive error handling
@@ -156,7 +183,7 @@ export default function Login() {
         </div>
 
         {/* Role Selection Section */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           {/* Scout Role Card */}
           <div 
             onClick={() => setSelectedRole('scout')}
@@ -211,6 +238,23 @@ export default function Login() {
               <h2 className="text-2xl font-bold text-white mb-4">Player</h2>
               <p className="text-zinc-400 mb-6">
                 View your personal performance metrics and progress
+              </p>
+            </div>
+          </div>
+
+          {/* Admin Role Card */}
+          <div 
+            onClick={() => setSelectedRole('admin')}
+            className={`bg-zinc-950 p-8 rounded-xl cursor-pointer transition-all duration-300 
+            ${selectedRole === 'admin' ? 'ring-4 ring-red-600' : 'hover:bg-zinc-900'}`}
+          >
+            <div className="flex flex-col items-center text-center">
+              <div className="w-24 h-24 rounded-full bg-red-600 flex items-center justify-center mb-6">
+                <Shield className="w-12 h-12 text-white" />
+              </div>
+              <h2 className="text-2xl font-bold text-white mb-4">Admin</h2>
+              <p className="text-zinc-400 mb-6">
+                Manage user verifications and system administration
               </p>
             </div>
           </div>

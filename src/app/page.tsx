@@ -1,3 +1,7 @@
+"use client";
+
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 import AppLayout from "@/components/layout/AppLayout";
 import Timer from "@/components/features/Timer";
 import { Button } from "@/components/ui/button";
@@ -8,6 +12,27 @@ import Link from "next/link";
 import Image from "next/image";
 
 export default function Home() {
+  const router = useRouter();
+
+  useEffect(() => {
+    // Check if user is logged in and their role
+    const user = localStorage.getItem('user');
+    if (user) {
+      try {
+        const userData = JSON.parse(user);
+        const role = userData.role?.toLowerCase();
+        
+        // Redirect scouts to scout dashboard
+        if (role === 'scout') {
+          router.push('/scout/dashboard');
+        }
+      } catch (error) {
+        // If parsing fails, continue to show home page
+        console.error('Error parsing user data:', error);
+      }
+    }
+  }, [router]);
+
   return (
     <AppLayout>
       <div className="w-full max-w-6xl mx-auto">
@@ -31,9 +56,6 @@ export default function Home() {
                 <span className="text-zinc-400">Advanced Performance Breakdown</span>
               </p>
 
-              <Button size="lg" className="bg-red-600 hover:bg-red-700 text-white rounded-full px-8">
-                UPLOAD
-              </Button>
             </div>
 
             <div className="w-full md:w-2/5">
@@ -52,47 +74,7 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Feature Sections */}
-        <div className="flex flex-col md:flex-row gap-6 mb-8">
-          <div className="flex-1">
-            <h2 className="text-xl font-bold text-white mb-6 uppercase">Upload Your Match</h2>
-            <UploadForm />
-          </div>
-
-          <div className="flex-1">
-            <h2 className="text-xl font-bold text-white mb-6 uppercase">Recent Analytics</h2>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <PlayerCard
-                  type="report"
-                  title="PLAYER REPORTS"
-                  rating={91}
-                  stats={[
-                    { label: "Speed", value: 88 },
-                    { label: "Stamina", value: 92 },
-                    { label: "Passing", value: 87 },
-                    { label: "Shooting", value: 79 }
-                  ]}
-                />
-              </div>
-
-              <div>
-                <PlayerCard
-                  type="profile"
-                  title="AI-GENERATED PLAYER PROFILE"
-                  rating={99}
-                  stats={[
-                    { label: "Matches", value: 8 },
-                    { label: "Goals", value: 12 },
-                    { label: "Assists", value: 5 },
-                    { label: "Km Run", value: 76 }
-                  ]}
-                />
-              </div>
-            </div>
-          </div>
-        </div>
+        
 
         {/* AI Performance Breakdown */}
         <section className="mb-12">
