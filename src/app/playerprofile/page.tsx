@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import AppLayout from "@/components/layout/AppLayout";
 import Image from "next/image";
+import { User } from "lucide-react";
 
 // Add an interface for the error response data
 interface ErrorResponse {
@@ -286,20 +287,18 @@ export default function PlayerProfile() {
               <div className="bg-zinc-900 rounded-xl p-6 border border-zinc-800">
                 <label className="block text-white font-medium mb-4">Profile Picture</label>
                 <div className="flex flex-col items-center">
-                  {profilePicturePreview ? (
-                    <div className="relative w-32 h-32 mb-4">
+                  <div className="relative w-32 h-32 rounded-full bg-zinc-800 border-4 border-red-600 flex items-center justify-center mb-4 overflow-hidden">
+                    {profilePicturePreview ? (
                       <Image
                         src={profilePicturePreview}
                         alt="Profile preview"
                         fill
-                        className="rounded-full object-cover border-4 border-red-600"
+                        className="object-cover"
                       />
-                    </div>
-                  ) : (
-                    <div className="w-32 h-32 rounded-full bg-zinc-800 border-4 border-zinc-700 flex items-center justify-center mb-4">
-                      <span className="text-zinc-500 text-sm">No image</span>
-                    </div>
-                  )}
+                    ) : (
+                      <User className="h-12 w-12 text-zinc-500" />
+                    )}
+                  </div>
                   <input 
                     type="file" 
                     accept="image/*"

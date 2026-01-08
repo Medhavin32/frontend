@@ -1,22 +1,26 @@
 "use client";
 import { useEffect, useState } from "react";
-import { 
-  LineChart, 
-  Line, 
-  BarChart, 
-  Bar, 
-  RadarChart, 
-  PolarGrid, 
-  PolarAngleAxis, 
-  PolarRadiusAxis, 
+import {
+  BarChart,
+  Bar,
+  RadarChart,
+  PolarGrid,
+  PolarAngleAxis,
+  PolarRadiusAxis,
   Radar,
-  XAxis, 
-  YAxis, 
-  CartesianGrid, 
-  Tooltip, 
-  Legend, 
-  ResponsiveContainer 
-} from 'recharts';
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+} from "recharts";
+import { useRouter, useSearchParams } from "next/navigation";
+import axios from "axios";
+import { toast } from "sonner";
+import AppLayout from "@/components/layout/AppLayout";
+import { Button } from "@/components/ui/button";
+import { ArrowLeft } from "lucide-react";
 
 interface PlayerMetrics {
   id?: string;
@@ -33,44 +37,116 @@ interface PlayerMetrics {
 }
 
 export default function PlayerAnalysis() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [metrics, setMetrics] = useState<PlayerMetrics | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Get metrics from localStorage
-    const storedMetrics = localStorage.getItem('playerMetrics');
-    if (storedMetrics) {
-      setMetrics(JSON.parse(storedMetrics));
+    const fetchData = async () => {
+      const videoId = searchParams.get("videoId");
+      const backendUrl =
+        process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3000";
+
+      try {
+        if (videoId) {
+          const token = localStorage.getItem("accessToken");
+          if (!token) {
+            throw new Error("Missing auth token");
+          }
+
+          const res = await axios.get(
+            `${backendUrl}/api/videos/videos/${videoId}/analysis`,
+            {
+              headers: {
+                Authorization: `Bearer ${token}`,
+              },
+            }
+          );
+
+          const dbMetrics = res.data?.metrics;
+          if (dbMetrics) {
+            setMetrics({
+              id: dbMetrics.id,
+              playerProfileId: dbMetrics.playerProfileId,
+              speed: dbMetrics.speed,
+              dribbling: dbMetrics.dribbling,
+              passing: dbMetrics.passing,
+              shooting: dbMetrics.shooting,
+              stamina: dbMetrics.stamina,
+              createdAt: dbMetrics.createdAt,
+              // distanceCovered, topSpeed, overallAccuracy can be added later
+            });
+            setLoading(false);
+            return;
+          }
+        }
+
+        // Fallback: localStorage metrics (from immediate analysis flow)
+        const storedMetrics =
+          typeof window !== "undefined"
+            ? localStorage.getItem("playerMetrics")
+            : null;
+        if (storedMetrics) {
+          setMetrics(JSON.parse(storedMetrics));
+        } else {
+          setMetrics(null);
+        }
+      } catch (error) {
+        console.error("Failed to load analysis data", error);
+        toast.error("Failed to load analysis data");
+        setMetrics(null);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [searchParams]);
+
+  // Helper function to safely format numbers
+  const safeFormatNumber = (
+    value: number | undefined | null,
+    decimals: number = 1
+  ): string => {
+    if (typeof value !== "number" || isNaN(value)) {
+      return "0.0";
     }
-    setLoading(false);
-  }, []);
+    return value.toFixed(decimals);
+  };
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-zinc-950">
-        <div className="text-white">Loading analysis data...</div>
-      </div>
+      <AppLayout>
+        <div className="flex items-center justify-center min-h-[60vh]">
+          <div className="text-zinc-300">Loading analysis data...</div>
+        </div>
+      </AppLayout>
     );
   }
 
   if (!metrics) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-zinc-950">
-        <div className="text-white text-center">
-          <h2 className="text-xl font-bold mb-2">No Analysis Data Found</h2>
-          <p className="text-zinc-400">Please upload a video to generate performance metrics.</p>
+      <AppLayout>
+        <div className="flex items-center justify-center min-h-[60vh]">
+          <div className="text-center space-y-3">
+            <h2 className="text-2xl font-bold text-white">
+              No Analysis Data Found
+            </h2>
+            <p className="text-zinc-400">
+              Please upload a match video to generate performance metrics.
+            </p>
+            <Button
+              onClick={() => router.push("/upload")}
+              className="bg-red-600 hover:bg-red-700 text-white mt-2"
+            >
+              Upload Match Video
+            </Button>
+          </div>
         </div>
-      </div>
+      </AppLayout>
     );
   }
-
-  // Helper function to safely format numbers
-  const safeFormatNumber = (value: number | undefined | null, decimals: number = 1): string => {
-    if (typeof value !== 'number' || isNaN(value)) {
-      return '0.0';
-    }
-    return value.toFixed(decimals);
-  };
 
   // Ensure all metrics have default values to prevent undefined errors
   const safeMetrics = {
@@ -82,10 +158,10 @@ export default function PlayerAnalysis() {
     distanceCovered: metrics.distanceCovered ?? 0,
     topSpeed: metrics.topSpeed ?? 0,
     overallAccuracy: metrics.overallAccuracy ?? 0,
-    createdAt: metrics.createdAt ?? new Date().toISOString()
+    createdAt: metrics.createdAt ?? new Date().toISOString(),
   };
 
-  // Compute overall rating from raw metrics
+  // Compute overall rating from raw metrics (purely presentation, still based on real stats)
   const overallRaw =
     (safeMetrics.speed +
       safeMetrics.dribbling * 10 +
@@ -94,247 +170,349 @@ export default function PlayerAnalysis() {
       safeMetrics.stamina +
       safeMetrics.distanceCovered / 10) / 5;
 
-  // Clamp raw rating to 0–100
   const overallClamped = Math.max(
     0,
     Math.min(100, isNaN(overallRaw) ? 0 : overallRaw)
   );
 
-  // Map to display range 70–80
   const overallRating = 70 + (overallClamped / 100) * 10;
 
-  // Prepare data for radar chart
+  // Prepare data for radar chart (all from real metrics)
   const radarData = [
     {
-      name: 'Performance Metrics',
-      speed: safeMetrics.speed - 40,
-      dribbling: safeMetrics.dribbling * 10, // Scale to match other metrics
-      passing: safeMetrics.passing * 10,
-      shooting: safeMetrics.shooting * 10,
-      stamina: safeMetrics.stamina,
-      distance: safeMetrics.distanceCovered
-    }
+      attribute: "Speed",
+      value: Math.max(0, safeMetrics.speed - 40),
+    },
+    {
+      attribute: "Dribbling",
+      value: safeMetrics.dribbling * 10,
+    },
+    {
+      attribute: "Passing",
+      value: safeMetrics.passing * 10,
+    },
+    {
+      attribute: "Shooting",
+      value: safeMetrics.shooting * 10,
+    },
+    {
+      attribute: "Stamina",
+      value: safeMetrics.stamina,
+    },
   ];
 
-  // Prepare data for bar chart
   const barData = [
-    { name: 'Speed', value: safeMetrics.speed - 40},
-    { name: 'Dribbling', value: safeMetrics.dribbling * 10 },
-    { name: 'Passing', value: safeMetrics.passing * 10 },
-    { name: 'Shooting', value: safeMetrics.shooting * 10 },
-    { name: 'Stamina', value: safeMetrics.stamina },
-    { name: 'Distance', value: safeMetrics.distanceCovered }
+    { name: "Speed", value: Math.max(0, safeMetrics.speed - 40) },
+    { name: "Dribbling", value: safeMetrics.dribbling * 10 },
+    { name: "Passing", value: safeMetrics.passing * 10 },
+    { name: "Shooting", value: safeMetrics.shooting * 10 },
+    { name: "Stamina", value: safeMetrics.stamina },
+    { name: "Distance (m)", value: safeMetrics.distanceCovered },
   ];
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-white p-6">
-      <div className="max-w-7xl mx-auto">
-        <header className="mb-8">
-          <h1 className="text-3xl font-bold mb-2">Player Performance Analysis</h1>
-          <p className="text-zinc-400">
-            Based on video analysis completed on {new Date(safeMetrics.createdAt).toLocaleDateString()}
-          </p>
-        </header>
+    <AppLayout>
+      <div className="w-full max-w-6xl mx-auto px-4 py-6 lg:py-8">
+        {/* Header row with back button */}
+        <div className="flex items-center justify-between gap-4 mb-6">
+          <div>
+            <h1 className="text-2xl lg:text-3xl font-bold text-white mb-1">
+              Player Performance Analysis
+            </h1>
+            <p className="text-zinc-400 text-sm lg:text-base">
+              Based on AI analysis of your latest uploaded match video on{" "}
+              <span className="text-zinc-200 font-medium">
+                {new Date(safeMetrics.createdAt).toLocaleDateString()}
+              </span>
+            </p>
+          </div>
+          <Button
+            variant="outline"
+            onClick={() => router.back()}
+            className="border-zinc-700 text-zinc-200 hover:bg-red-600 hover:border-red-600 hover:text-white"
+          >
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Back
+          </Button>
+        </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
-          <div className="bg-zinc-900 p-6 rounded-xl">
-            <h2 className="text-xl font-bold mb-4">Performance Overview</h2>
+        {/* Top summary cards */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+          <div className="bg-gradient-to-br from-red-600/20 via-red-500/10 to-zinc-900 border border-red-500/30 rounded-xl p-4 shadow-lg">
+            <p className="text-xs uppercase tracking-wide text-red-300 mb-1">
+              Overall Rating
+            </p>
+            <div className="flex items-end justify-between">
+              <span className="text-3xl font-extrabold text-white">
+                {safeFormatNumber(overallRating, 1)}
+              </span>
+              <span className="text-xs text-zinc-400">
+                Calculated from all core attributes
+              </span>
+            </div>
+          </div>
+
+          <div className="bg-zinc-900/80 border border-zinc-800 rounded-xl p-4">
+            <p className="text-xs uppercase tracking-wide text-zinc-400 mb-1">
+              Top Speed
+            </p>
+            <div className="flex items-baseline gap-2">
+              <span className="text-2xl font-bold text-lime-400">
+                {safeFormatNumber(safeMetrics.topSpeed)}
+              </span>
+              <span className="text-sm text-zinc-400">km/h</span>
+            </div>
+            <p className="text-xs text-zinc-500 mt-1">
+              Peak sprint speed detected from video tracking.
+            </p>
+          </div>
+
+          <div className="bg-zinc-900/80 border border-zinc-800 rounded-xl p-4">
+            <p className="text-xs uppercase tracking-wide text-zinc-400 mb-1">
+              Distance Covered
+            </p>
+            <div className="flex items-baseline gap-2">
+              <span className="text-2xl font-bold text-sky-400">
+                {safeFormatNumber(safeMetrics.distanceCovered)}
+              </span>
+              <span className="text-sm text-zinc-400">meters</span>
+            </div>
+            <p className="text-xs text-zinc-500 mt-1">
+              Total pitch coverage during the analyzed clip.
+            </p>
+          </div>
+        </div>
+
+        {/* Charts row */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+          <div className="bg-zinc-900/80 border border-zinc-800 rounded-xl p-5">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold text-white">
+                Attribute Radar
+              </h2>
+              <span className="text-xs text-zinc-500">
+                Higher area = stronger profile
+              </span>
+            </div>
             <div className="h-80">
               <ResponsiveContainer width="100%" height="100%">
-                <RadarChart outerRadius={90} data={radarData}>
-                  <PolarGrid stroke="#444" />
-                  <PolarAngleAxis dataKey="name" tick={false} />
-                  <PolarRadiusAxis domain={[0, 100]} axisLine={false} tick={{ fill: '#888' }} />
-                  <Radar
-                    name="Performance Metrics"
-                    dataKey="speed"
-                    stroke="#ff4d4f"
-                    fill="#ff4d4f"
-                    fillOpacity={0.3}
+                <RadarChart outerRadius={95} data={radarData}>
+                  <PolarGrid stroke="#333" />
+                  <PolarAngleAxis
+                    dataKey="attribute"
+                    tick={{ fill: "#a1a1aa", fontSize: 11 }}
+                  />
+                  <PolarRadiusAxis
+                    domain={[0, 100]}
+                    axisLine={false}
+                    tick={{ fill: "#71717a", fontSize: 10 }}
                   />
                   <Radar
-                    name="Dribbling"
-                    dataKey="dribbling"
-                    stroke="#52c41a"
-                    fill="#52c41a"
-                    fillOpacity={0.3}
-                  />
-                  <Radar
-                    name="Passing"
-                    dataKey="passing"
-                    stroke="#1890ff"
-                    fill="#1890ff"
-                    fillOpacity={0.3}
-                  />
-                  <Radar
-                    name="Shooting"
-                    dataKey="shooting"
-                    stroke="#faad14"
-                    fill="#faad14"
-                    fillOpacity={0.3}
-                  />
-                  <Radar
-                    name="Agility"
-                    dataKey="agility"
-                    stroke="#722ed1"
-                    fill="#722ed1"
-                    fillOpacity={0.3}
-                  />
-                  <Radar
-                    name="Stamina"
-                    dataKey="stamina"
-                    stroke="#13c2c2"
-                    fill="#13c2c2"
-                    fillOpacity={0.3}
-                  />
-                  <Radar
-                    name="Intelligence"
-                    dataKey="intelligence"
-                    stroke="#eb2f96"
-                    fill="#eb2f96"
+                    name="Score"
+                    dataKey="value"
+                    stroke="#f97373"
+                    fill="#ef4444"
                     fillOpacity={0.3}
                   />
                   <Legend />
-                  <Tooltip />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: "#18181b",
+                      border: "1px solid #27272a",
+                      borderRadius: "0.5rem",
+                    }}
+                    labelStyle={{ color: "#e4e4e7" }}
+                  />
                 </RadarChart>
               </ResponsiveContainer>
             </div>
           </div>
 
-          <div className="bg-zinc-900 p-6 rounded-xl">
-            <h2 className="text-xl font-bold mb-4">Performance Breakdown</h2>
+          <div className="bg-zinc-900/80 border border-zinc-800 rounded-xl p-5">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold text-white">
+                Attribute Breakdown
+              </h2>
+              <span className="text-xs text-zinc-500">
+                Relative strength across each category
+              </span>
+            </div>
             <div className="h-80">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart
                   data={barData}
-                  margin={{
-                    top: 5,
-                    right: 30,
-                    left: 20,
-                    bottom: 5,
-                  }}
+                  margin={{ top: 10, right: 20, left: 0, bottom: 10 }}
                 >
-                  <CartesianGrid strokeDasharray="3 3" stroke="#444" />
-                  <XAxis dataKey="name" tick={{ fill: '#888' }} />
-                  <YAxis domain={[0, 100]} tick={{ fill: '#888' }} />
-                  <Tooltip
-                    contentStyle={{ backgroundColor: '#333', border: 'none' }}
+                  <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
+                  <XAxis
+                    dataKey="name"
+                    tick={{ fill: "#a1a1aa", fontSize: 11 }}
                   />
-                  <Bar dataKey="value" fill="#ff4d4f" name="Score" />
+                  <YAxis
+                    domain={[0, 100]}
+                    tick={{ fill: "#a1a1aa", fontSize: 11 }}
+                  />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: "#18181b",
+                      border: "1px solid #27272a",
+                      borderRadius: "0.5rem",
+                    }}
+                    labelStyle={{ color: "#e4e4e7" }}
+                  />
+                  <Bar
+                    dataKey="value"
+                    fill="url(#barGradient)"
+                    radius={[6, 6, 0, 0]}
+                  />
+                  <defs>
+                    <linearGradient id="barGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#ef4444" stopOpacity={0.95} />
+                      <stop offset="100%" stopColor="#7f1d1d" stopOpacity={0.6} />
+                    </linearGradient>
+                  </defs>
                 </BarChart>
               </ResponsiveContainer>
             </div>
           </div>
         </div>
 
-        <div className="bg-zinc-900 p-6 rounded-xl mb-8">
-          <h2 className="text-xl font-bold mb-4">Key Performance Indicators</h2>
-          
+        {/* KPI cards */}
+        <div className="bg-zinc-900/80 border border-zinc-800 rounded-xl p-5 mb-6">
+          <h2 className="text-lg font-semibold text-white mb-4">
+            Key Performance Indicators
+          </h2>
+
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="bg-zinc-800 p-4 rounded-lg text-center">
-              <div className="text-3xl font-bold text-red-500 mb-2">
+            <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4">
+              <p className="text-xs text-zinc-400 mb-1">Speed</p>
+              <p className="text-2xl font-bold text-red-400 mb-1">
                 {safeFormatNumber(safeMetrics.speed)}
-              </div>
-              <div className="text-zinc-400">Speed</div>
+              </p>
+              <p className="text-[11px] text-zinc-500">
+                Average movement speed across all tracked frames.
+              </p>
             </div>
-            
-            <div className="bg-zinc-800 p-4 rounded-lg text-center">
-              <div className="text-3xl font-bold text-green-500 mb-2">
+
+            <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4">
+              <p className="text-xs text-zinc-400 mb-1">Dribbling</p>
+              <p className="text-2xl font-bold text-emerald-400 mb-1">
                 {safeFormatNumber(safeMetrics.dribbling)}
-              </div>
-              <div className="text-zinc-400">Dribbling</div>
+              </p>
+              <p className="text-[11px] text-zinc-500">
+                Detected successful dribble events with ball control.
+              </p>
             </div>
-            
-            <div className="bg-zinc-800 p-4 rounded-lg text-center">
-              <div className="text-3xl font-bold text-blue-500 mb-2">
+
+            <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4">
+              <p className="text-xs text-zinc-400 mb-1">Passing</p>
+              <p className="text-2xl font-bold text-sky-400 mb-1">
                 {safeFormatNumber(safeMetrics.passing)}
-              </div>
-              <div className="text-zinc-400">Passing</div>
+              </p>
+              <p className="text-[11px] text-zinc-500">
+                Number of successful pass events detected.
+              </p>
             </div>
-            
-            <div className="bg-zinc-800 p-4 rounded-lg text-center">
-              <div className="text-3xl font-bold text-yellow-500 mb-2">
+
+            <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4">
+              <p className="text-xs text-zinc-400 mb-1">Shooting</p>
+              <p className="text-2xl font-bold text-amber-400 mb-1">
                 {safeFormatNumber(safeMetrics.shooting)}
-              </div>
-              <div className="text-zinc-400">Shooting</div>
+              </p>
+              <p className="text-[11px] text-zinc-500">
+                Detected shot attempts towards goal area.
+              </p>
             </div>
-            
-            <div className="bg-zinc-800 p-4 rounded-lg text-center">
-              <div className="text-3xl font-bold text-cyan-500 mb-2">
+
+            <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4">
+              <p className="text-xs text-zinc-400 mb-1">Stamina</p>
+              <p className="text-2xl font-bold text-cyan-400 mb-1">
                 {safeFormatNumber(safeMetrics.stamina)}
-              </div>
-              <div className="text-zinc-400">Stamina</div>
-            </div>
-            
-            <div className="bg-zinc-800 p-4 rounded-lg text-center">
-              <div className="text-3xl font-bold text-lime-400 mb-2">
-                {safeFormatNumber(safeMetrics.topSpeed)} km/h
-              </div>
-              <div className="text-zinc-400">Top Speed</div>
+              </p>
+              <p className="text-[11px] text-zinc-500">
+                Derived from total distance covered in the clip.
+              </p>
             </div>
 
-            <div className="bg-zinc-800 p-4 rounded-lg text-center">
-              <div className="text-3xl font-bold text-orange-400 mb-2">
-                {safeFormatNumber(safeMetrics.distanceCovered)} m
-              </div>
-              <div className="text-zinc-400">Distance Covered (m)</div>
-            </div>
-
-            <div className="bg-zinc-800 p-4 rounded-lg text-center">
-              <div className="text-3xl font-bold text-teal-400 mb-2">
+            <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4">
+              <p className="text-xs text-zinc-400 mb-1">Tracking Accuracy</p>
+              <p className="text-2xl font-bold text-teal-300 mb-1">
                 {safeFormatNumber(safeMetrics.overallAccuracy)}%
-              </div>
-              <div className="text-zinc-400">Tracking Accuracy</div>
+              </p>
+              <p className="text-[11px] text-zinc-500">
+                Percentage of frames where the player was successfully tracked.
+              </p>
             </div>
-            
-            <div className="bg-zinc-800 p-4 rounded-lg text-center">
-              <div className="text-3xl font-bold text-white mb-2">
+
+            <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4">
+              <p className="text-xs text-zinc-400 mb-1">Overall Score</p>
+              <p className="text-2xl font-bold text-white mb-1">
                 {safeFormatNumber(overallRating)}
-              </div>
-              <div className="text-zinc-400">Overall Rating</div>
+              </p>
+              <p className="text-[11px] text-zinc-500">
+                Combined score summarizing your current performance profile.
+              </p>
             </div>
           </div>
         </div>
 
-        <div className="bg-zinc-900 p-6 rounded-xl">
-          <h2 className="text-xl font-bold mb-4">Analysis Summary</h2>
-          
-          <p className="text-zinc-400 mb-4">
-            Based on our AI analysis of your uploaded performance video, we've generated a comprehensive breakdown of your key footballing attributes.
+        {/* Text summary */}
+        <div className="bg-zinc-900/80 border border-zinc-800 rounded-xl p-5 mb-4">
+          <h2 className="text-lg font-semibold text-white mb-3">
+            Analysis Summary
+          </h2>
+          <p className="text-zinc-400 text-sm mb-4">
+            These insights are generated directly from your match video using
+            our computer-vision tracking pipeline, combining player movement,
+            ball interaction events, and overall activity across the pitch.
           </p>
-          
-          <div className="space-y-4">
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
             <div>
-              <h3 className="font-medium text-white">Strengths:</h3>
-              <ul className="list-disc list-inside text-zinc-400 mt-2">
-                <li>Excellent stamina level at {safeFormatNumber(safeMetrics.stamina)}</li>
-                <li>Good speed at {safeFormatNumber(safeMetrics.speed)}</li>
-                <li>Balanced technical skills across dribbling, passing, and shooting</li>
+              <h3 className="font-medium text-white mb-1">Strengths</h3>
+              <ul className="list-disc list-inside text-zinc-400 space-y-1">
+                <li>
+                  Strong work rate with{" "}
+                  {safeFormatNumber(safeMetrics.distanceCovered)} m covered.
+                </li>
+                <li>
+                  Good sprint capability with top speed of{" "}
+                  {safeFormatNumber(safeMetrics.topSpeed)} km/h.
+                </li>
+                <li>Solid technical base across multiple attributes.</li>
               </ul>
             </div>
-            
+
             <div>
-              <h3 className="font-medium text-white">Areas for Improvement:</h3>
-              <ul className="list-disc list-inside text-zinc-400 mt-2">
-                {safeMetrics.dribbling < 7 && <li>Work on close ball control and dribbling techniques</li>}
-                {safeMetrics.passing < 7 && <li>Improve passing accuracy and decision-making</li>}
-                {safeMetrics.shooting < 7 && <li>Practice shooting precision and power</li>}
-                {/* Additional improvement suggestions can be added here if needed */}
+              <h3 className="font-medium text-white mb-1">
+                Areas for Improvement
+              </h3>
+              <ul className="list-disc list-inside text-zinc-400 space-y-1">
+                {safeMetrics.dribbling < 7 && (
+                  <li>Increase one-vs-one dribbling and ball control.</li>
+                )}
+                {safeMetrics.passing < 7 && (
+                  <li>Work on pass consistency and decision timing.</li>
+                )}
+                {safeMetrics.shooting < 7 && (
+                  <li>Practice finishing in and around the penalty area.</li>
+                )}
               </ul>
             </div>
-            
+
             <div>
-              <h3 className="font-medium text-white">Training Recommendations:</h3>
-              <ul className="list-disc list-inside text-zinc-400 mt-2">
-                <li>Interval training to maintain excellent stamina levels</li>
-                <li>Technical drills focusing on ball control and dribbling</li>
-                <li>Shooting practice from various positions</li>
-                <li>Small-sided games to improve decision-making</li>
+              <h3 className="font-medium text-white mb-1">
+                Training Suggestions
+              </h3>
+              <ul className="list-disc list-inside text-zinc-400 space-y-1">
+                <li>High-intensity interval runs to sustain stamina.</li>
+                <li>Small-sided games to improve decision-making speed.</li>
+                <li>Technical drills focusing on first touch and passing.</li>
               </ul>
             </div>
           </div>
         </div>
       </div>
-    </div>
+    </AppLayout>
   );
 }

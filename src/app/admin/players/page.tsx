@@ -45,6 +45,7 @@ interface Player {
       id: string;
       title?: string;
       videoUrl: string;
+      googleDriveFileId?: string;
       createdAt: string;
     }>;
     scoutReports?: Array<{
@@ -279,19 +280,19 @@ function AdminPlayersContent() {
             >
               <div className="flex items-start justify-between mb-4">
                 <div className="flex items-center gap-4">
-                  {player.profilePicture ? (
-                    <Image
-                      src={player.profilePicture}
-                      alt={player.name}
-                      width={64}
-                      height={64}
-                      className="rounded-full object-cover"
-                    />
-                  ) : (
-                    <div className="w-16 h-16 rounded-full bg-zinc-800 flex items-center justify-center">
+                  <div className="relative w-16 h-16 rounded-full bg-zinc-800 flex items-center justify-center overflow-hidden">
+                    {/* {player.profilePicture ? (
+                      <Image
+                        src={player.profilePicture}
+                        alt={player.name}
+                        fill
+                        className="object-cover"
+                      />
+                    ) : (
                       <User className="h-8 w-8 text-zinc-400" />
-                    </div>
-                  )}
+                    )} */}
+                    <User className="h-8 w-8 text-zinc-400" />
+                  </div>
                   <div>
                     <h3 className="text-white font-semibold text-lg">{player.name}</h3>
                     {getStatusBadge(player.verificationStatus)}
@@ -353,19 +354,18 @@ function AdminPlayersContent() {
               {/* Profile Section */}
               <div className="bg-zinc-900 rounded-lg p-6 mb-6 border border-zinc-800">
                 <div className="flex items-start gap-6 mb-6">
-                  {playerDetails.profilePicture ? (
-                    <Image
-                      src={playerDetails.profilePicture}
-                      alt={playerDetails.name}
-                      width={120}
-                      height={120}
-                      className="rounded-full object-cover"
-                    />
-                  ) : (
-                    <div className="w-30 h-30 rounded-full bg-zinc-800 flex items-center justify-center">
+                  <div className="relative w-30 h-30 rounded-full bg-zinc-800 flex items-center justify-center overflow-hidden">
+                    {playerDetails.profilePicture ? (
+                      <Image
+                        src={playerDetails.profilePicture}
+                        alt={playerDetails.name}
+                        fill
+                        className="object-cover"
+                      />
+                    ) : (
                       <User className="h-16 w-16 text-zinc-400" />
-                    </div>
-                  )}
+                    )}
+                  </div>
                   <div className="flex-1">
                     <h3 className="text-2xl font-bold text-white mb-2">{playerDetails.name}</h3>
                     {getStatusBadge(playerDetails.verificationStatus)}

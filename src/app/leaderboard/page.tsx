@@ -201,14 +201,19 @@ export default function LeaderboardPage() {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center gap-3">
-                          <div className="relative w-12 h-12 rounded-full overflow-hidden border-2 border-red-600">
-                            <Image
-                              src={player.profilePicture || '/default-avatar.png'}
-                              alt={player.name}
-                              fill
-                              className="object-cover"
-                              sizes="48px"
-                            />
+                          <div className="relative w-12 h-12 rounded-full bg-zinc-800 flex items-center justify-center overflow-hidden border-2 border-red-600">
+                            {/* {player.profilePicture ? (
+                              <Image
+                                src={player.profilePicture}
+                                alt={player.name}
+                                fill
+                                className="object-cover"
+                                sizes="48px"
+                              />
+                            ) : (
+                              <User className="h-6 w-6 text-zinc-400" />
+                            )} */}
+                            <User className="h-6 w-6 text-zinc-400" />
                           </div>
                           <div>
                             <div className="text-white font-semibold">{player.name}</div>

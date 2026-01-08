@@ -173,8 +173,8 @@ export default function ContactPage() {
                   </div>
                   <div>
                     <h3 className="text-sm text-zinc-400 mb-1">Email Us</h3>
-                    <p className="text-white font-medium">support@aiplayeranalysis.com</p>
-                    <p className="text-white font-medium">info@aiplayeranalysis.com</p>
+                    <p className="text-white font-medium">sahuabhit1@gmail.com</p>
+                    <p className="text-white font-medium">abhijeetanand628@gmail.com</p>
                   </div>
                 </div>
 
@@ -184,8 +184,8 @@ export default function ContactPage() {
                   </div>
                   <div>
                     <h3 className="text-sm text-zinc-400 mb-1">Call Us</h3>
-                    <p className="text-white font-medium">+1 (555) 123-4567</p>
-                    <p className="text-white font-medium">+1 (555) 987-6543</p>
+                    <p className="text-white font-medium">+91 7085563968</p>
+                    <p className="text-white font-medium">+91 8271347733</p>
                   </div>
                 </div>
 
@@ -196,9 +196,7 @@ export default function ContactPage() {
                   <div>
                     <h3 className="text-sm text-zinc-400 mb-1">Location</h3>
                     <p className="text-white font-medium">
-                      123 Innovation Drive<br />
-                      Suite 400<br />
-                      San Francisco, CA 94103
+                      Bangalore, India<br />
                     </p>
                   </div>
                 </div>

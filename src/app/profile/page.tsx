@@ -343,20 +343,19 @@ export default function ProfilePage() {
             <div className="lg:col-span-1">
               <div className="bg-zinc-900 rounded-xl p-6 border border-zinc-800">
                 <div className="flex flex-col items-center">
-                  {profilePicturePreview ? (
-                    <div className="relative w-40 h-40 mb-4">
+                  <div className="relative w-40 h-40 rounded-full bg-zinc-800 border-4 border-red-600 flex items-center justify-center mb-4 overflow-hidden">
+                    {/* {profilePicturePreview ? (
                       <Image
                         src={profilePicturePreview}
                         alt="Profile"
                         fill
-                        className="rounded-full object-cover border-4 border-red-600"
+                        className="object-cover"
                       />
-                    </div>
-                  ) : (
-                    <div className="w-40 h-40 rounded-full bg-zinc-800 border-4 border-zinc-700 flex items-center justify-center mb-4">
+                    ) : (
                       <User className="w-16 h-16 text-zinc-500" />
-                    </div>
-                  )}
+                    )} */}
+                    <User className="w-16 h-16 text-zinc-500" />
+                  </div>
                   
                   {isEditing && (
                     <input 

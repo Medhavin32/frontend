@@ -239,19 +239,19 @@ export default function ScoutDashboard() {
               <div className="bg-zinc-950 rounded-xl p-6 border border-zinc-800 hover:border-red-600 transition-colors cursor-pointer">
                 <div className="flex items-start justify-between mb-4">
                   <div className="flex items-center gap-4">
-                    {player.profilePicture ? (
-                      <Image
-                        src={player.profilePicture}
-                        alt={player.name}
-                        width={64}
-                        height={64}
-                        className="w-16 h-16 rounded-full object-cover"
-                      />
-                    ) : (
-                      <div className="w-16 h-16 rounded-full bg-zinc-800 flex items-center justify-center">
+                    <div className="relative w-16 h-16 rounded-full bg-zinc-800 flex items-center justify-center overflow-hidden">
+                      {/* {player.profilePicture ? (
+                        <Image
+                          src={player.profilePicture}
+                          alt={player.name}
+                          fill
+                          className="object-cover"
+                        />
+                      ) : (
                         <User className="h-8 w-8 text-zinc-400" />
-                      </div>
-                    )}
+                      )} */}
+                      <User className="h-8 w-8 text-zinc-400" />
+                    </div>
                     <div>
                       <h3 className="text-white font-semibold text-lg">{player.name}</h3>
                       {getStatusBadge(player.verificationStatus)}

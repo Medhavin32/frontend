@@ -36,6 +36,7 @@ interface VideoSelection {
 interface VideoData {
   id: string;
   videoUrl: string;
+  googleDriveFileId?: string;
   status: string;
   createdAt: string;
   selections: VideoSelection[];
@@ -61,6 +62,22 @@ export default function PlayerDashboard() {
 
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [expandedVideoId, setExpandedVideoId] = useState<string | null>(null);
+
+  // Helper function to convert Google Drive view link to embed URL
+  const getEmbedUrl = (videoUrl: string, googleDriveFileId?: string) => {
+    // Use googleDriveFileId if available (more reliable)
+    if (googleDriveFileId) {
+      return `https://drive.google.com/file/d/${googleDriveFileId}/preview`;
+    }
+    // Fallback: Extract from URL
+    if (!videoUrl) return null;
+    const match = videoUrl.match(/\/d\/([a-zA-Z0-9_-]+)/);
+    if (match) {
+      return `https://drive.google.com/file/d/${match[1]}/preview`;
+    }
+    return videoUrl;
+  };
 
   useEffect(() => {
     const token = localStorage.getItem('accessToken');
@@ -137,16 +154,19 @@ export default function PlayerDashboard() {
         {/* Header */}
         <div className="bg-zinc-950 rounded-xl p-6 border border-zinc-800 mb-6">
           <div className="flex items-center gap-4">
-            {dashboardData.player.profilePicture && (
-              <div className="relative w-16 h-16">
+            <div className="relative w-16 h-16 rounded-full border-2 border-red-600 bg-zinc-800 flex items-center justify-center overflow-hidden">
+              {/* {dashboardData.player.profilePicture ? (
                 <Image
                   src={dashboardData.player.profilePicture}
                   alt={dashboardData.player.name}
                   fill
-                  className="rounded-full border-2 border-red-600 object-cover"
+                  className="object-cover"
                 />
-              </div>
-            )}
+              ) : (
+                <User className="h-8 w-8 text-zinc-400" />
+              )} */}
+              <User className="h-8 w-8 text-zinc-400" />
+            </div>
             <div>
               <h1 className="text-3xl font-bold text-white">Player Dashboard</h1>
               <p className="text-zinc-400">Welcome back, {dashboardData.player.name}</p>
@@ -211,92 +231,124 @@ export default function PlayerDashboard() {
             </div>
           ) : (
             <div className="space-y-4">
-              {dashboardData.videos.map((video: VideoData) => (
-                <div
-                  key={video.id}
-                  className="bg-zinc-900 rounded-lg p-6 border border-zinc-800 hover:border-red-600 transition-colors"
-                >
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3 mb-2">
-                        <Video className="h-5 w-5 text-red-500" />
-                        <h3 className="text-lg font-semibold text-white">
-                          Video {new Date(video.createdAt).toLocaleDateString()}
-                        </h3>
-                        {video.isSelected && (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-green-500/20 px-2 py-1 text-xs text-green-400">
-                            <CheckCircle2 className="h-3 w-3" />
-                            Selected by Scout
-                          </span>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-4 text-sm text-zinc-400">
-                        <span className="flex items-center gap-1">
-                          <Calendar className="h-4 w-4" />
-                          {new Date(video.createdAt).toLocaleDateString()}
-                        </span>
-                        <span className="capitalize">{video.status.toLowerCase()}</span>
-                        {video.hasSelections && (
+              {dashboardData.videos.map((video: VideoData) => {
+                const embedUrl = getEmbedUrl(video.videoUrl, video.googleDriveFileId);
+                const isExpanded = expandedVideoId === video.id;
+
+                return (
+                  <div
+                    key={video.id}
+                    className="bg-zinc-900 rounded-lg p-6 border border-zinc-800 hover:border-red-600 transition-colors"
+                  >
+                    <div className="flex items-start justify-between mb-4">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-3 mb-2">
+                          <Video className="h-5 w-5 text-red-500" />
+                          <h3 className="text-lg font-semibold text-white">
+                            Video {new Date(video.createdAt).toLocaleDateString()}
+                          </h3>
+                          {video.isSelected && (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-green-500/20 px-2 py-1 text-xs text-green-400">
+                              <CheckCircle2 className="h-3 w-3" />
+                              Selected by Scout
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-4 text-sm text-zinc-400">
                           <span className="flex items-center gap-1">
-                            <Eye className="h-4 w-4" />
-                            {video.selections.length} scout{video.selections.length !== 1 ? 's' : ''} viewed
+                            <Calendar className="h-4 w-4" />
+                            {new Date(video.createdAt).toLocaleDateString()}
                           </span>
-                        )}
+                          <span className="capitalize">{video.status.toLowerCase()}</span>
+                          {video.hasSelections && (
+                            <span className="flex items-center gap-1">
+                              <Eye className="h-4 w-4" />
+                              {video.selections.length} scout{video.selections.length !== 1 ? 's' : ''} viewed
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        <a
+                          href={video.videoUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={(e) => e.stopPropagation()}
+                          className="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg text-sm"
+                        >
+                          View Video
+                        </a>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setExpandedVideoId(isExpanded ? null : video.id);
+                          }}
+                          className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm"
+                        >
+                          {isExpanded ? 'Hide Player' : 'View Analysis'}
+                        </button>
                       </div>
                     </div>
-                    <a
-                      href={video.videoUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg text-sm"
-                    >
-                      View Video
-                    </a>
-                  </div>
 
-                  {/* Scout Selections */}
-                  {video.selections.length > 0 && (
-                    <div className="mt-4 pt-4 border-t border-zinc-800">
-                      <h4 className="text-sm font-semibold text-zinc-300 mb-3">Scout Interactions</h4>
-                      <div className="space-y-3">
-                        {video.selections.map((selection: VideoSelection) => (
-                          <div
-                            key={selection.id}
-                            className="bg-zinc-950 rounded-lg p-4 border border-zinc-800"
-                          >
-                            <div className="flex items-start justify-between">
-                              <div className="flex-1">
-                                <div className="flex items-center gap-2 mb-2">
-                                  <User className="h-4 w-4 text-zinc-400" />
-                                  <span className="text-white font-medium">{selection.scout.name}</span>
-                                  {getStatusBadge(selection.status)}
+                    {/* Embedded Video Player */}
+                    {isExpanded && embedUrl && (
+                      <div className="mb-4 rounded-lg overflow-hidden bg-black">
+                        <iframe
+                          src={embedUrl}
+                          width="100%"
+                          height="400"
+                          allow="autoplay"
+                          frameBorder="0"
+                          className="w-full"
+                          allowFullScreen
+                        />
+                      </div>
+                    )}
+
+                    {/* Scout Selections */}
+                    {video.selections.length > 0 && (
+                      <div className="mt-4 pt-4 border-t border-zinc-800">
+                        <h4 className="text-sm font-semibold text-zinc-300 mb-3">Scout Interactions</h4>
+                        <div className="space-y-3">
+                          {video.selections.map((selection: VideoSelection) => (
+                            <div
+                              key={selection.id}
+                              className="bg-zinc-950 rounded-lg p-4 border border-zinc-800"
+                            >
+                              <div className="flex items-start justify-between">
+                                <div className="flex-1">
+                                  <div className="flex items-center gap-2 mb-2">
+                                    <User className="h-4 w-4 text-zinc-400" />
+                                    <span className="text-white font-medium">{selection.scout.name}</span>
+                                    {getStatusBadge(selection.status)}
+                                  </div>
+                                  {selection.clubName && (
+                                    <p className="text-sm text-zinc-400 mb-1">
+                                      <Award className="h-3 w-3 inline mr-1" />
+                                      Club: {selection.clubName}
+                                    </p>
+                                  )}
+                                  {selection.comments && (
+                                    <p className="text-sm text-zinc-300 mt-2 flex items-start gap-2">
+                                      <MessageSquare className="h-4 w-4 text-zinc-400 mt-0.5 flex-shrink-0" />
+                                      <span>{selection.comments}</span>
+                                    </p>
+                                  )}
+                                  {selection.selectedAt && (
+                                    <p className="text-xs text-zinc-500 mt-2">
+                                      Selected on {new Date(selection.selectedAt).toLocaleDateString()}
+                                    </p>
+                                  )}
                                 </div>
-                                {selection.clubName && (
-                                  <p className="text-sm text-zinc-400 mb-1">
-                                    <Award className="h-3 w-3 inline mr-1" />
-                                    Club: {selection.clubName}
-                                  </p>
-                                )}
-                                {selection.comments && (
-                                  <p className="text-sm text-zinc-300 mt-2 flex items-start gap-2">
-                                    <MessageSquare className="h-4 w-4 text-zinc-400 mt-0.5 flex-shrink-0" />
-                                    <span>{selection.comments}</span>
-                                  </p>
-                                )}
-                                {selection.selectedAt && (
-                                  <p className="text-xs text-zinc-500 mt-2">
-                                    Selected on {new Date(selection.selectedAt).toLocaleDateString()}
-                                  </p>
-                                )}
                               </div>
                             </div>
-                          </div>
-                        ))}
+                          ))}
+                        </div>
                       </div>
-                    </div>
-                  )}
-                </div>
-              ))}
+                    )}
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>

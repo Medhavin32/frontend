@@ -267,19 +267,18 @@ function AdminScoutsContent() {
             >
               <div className="flex items-start justify-between mb-4">
                 <div className="flex items-center gap-4">
-                  {scout.profilePicture ? (
-                    <Image
-                      src={scout.profilePicture}
-                      alt={scout.name}
-                      width={64}
-                      height={64}
-                      className="rounded-full object-cover"
-                    />
-                  ) : (
-                    <div className="w-16 h-16 rounded-full bg-zinc-800 flex items-center justify-center">
+                  <div className="relative w-16 h-16 rounded-full bg-zinc-800 flex items-center justify-center overflow-hidden">
+                    {scout.profilePicture ? (
+                      <Image
+                        src={scout.profilePicture}
+                        alt={scout.name}
+                        fill
+                        className="object-cover"
+                      />
+                    ) : (
                       <User className="h-8 w-8 text-zinc-400" />
-                    </div>
-                  )}
+                    )}
+                  </div>
                   <div>
                     <h3 className="text-white font-semibold text-lg">{scout.name}</h3>
                     {getStatusBadge(scout.verificationStatus)}
@@ -340,19 +339,18 @@ function AdminScoutsContent() {
               {/* Profile Section */}
               <div className="bg-zinc-900 rounded-lg p-6 mb-6 border border-zinc-800">
                 <div className="flex items-start gap-6 mb-6">
-                  {scoutDetails.profilePicture ? (
-                    <Image
-                      src={scoutDetails.profilePicture}
-                      alt={scoutDetails.name}
-                      width={120}
-                      height={120}
-                      className="rounded-full object-cover"
-                    />
-                  ) : (
-                    <div className="w-30 h-30 rounded-full bg-zinc-800 flex items-center justify-center">
+                  <div className="relative w-30 h-30 rounded-full bg-zinc-800 flex items-center justify-center overflow-hidden">
+                    {scoutDetails.profilePicture ? (
+                      <Image
+                        src={scoutDetails.profilePicture}
+                        alt={scoutDetails.name}
+                        fill
+                        className="object-cover"
+                      />
+                    ) : (
                       <User className="h-16 w-16 text-zinc-400" />
-                    </div>
-                  )}
+                    )}
+                  </div>
                   <div className="flex-1">
                     <h3 className="text-2xl font-bold text-white mb-2">{scoutDetails.name}</h3>
                     {getStatusBadge(scoutDetails.verificationStatus)}

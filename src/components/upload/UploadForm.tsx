@@ -17,6 +17,7 @@ export default function UploadForm() {
   const [jerseyNumber, setJerseyNumber] = useState("7"); // Default jersey number
   const [profileCompletion, setProfileCompletion] = useState<{completionPercentage: number, verificationStatus: string} | null>(null);
   const [isCheckingProfile, setIsCheckingProfile] = useState(true);
+  const [lastVideoId, setLastVideoId] = useState<string | null>(null);
 
   // Check profile completion and verification status
   useEffect(() => {
@@ -72,30 +73,7 @@ export default function UploadForm() {
     setPreviewUrl(url);
   };
 
-  // Upload video to cloud storage (simulated)
-  const uploadToCloudStorage = async (file: File): Promise<string> => {
-    // This is a placeholder for your actual cloud storage upload logic
-    // In a real implementation, you would:
-    // 1. Get a signed URL from your backend
-    // 2. Upload directly to cloud storage
-    // 3. Return the public URL
-
-    return new Promise((resolve) => {
-      let progress = 0;
-      const interval = setInterval(() => {
-        progress += 5;
-        setProgress(progress);
-        
-        if (progress >= 100) {
-          clearInterval(interval);
-          // Return a mock video URL
-          resolve(`https://storage.example.com/${file.name}-${Date.now()}`);
-        }
-      }, 300);
-    });
-  };
-
-  // Handle form submission
+  // Handle form submission - upload directly to backend (which uploads to Google Drive)
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -118,7 +96,6 @@ export default function UploadForm() {
       return;
     }
     
-    // Add more detailed validation and logging
     if (!file) {
       toast.error("Please select a file to upload");
       return;
@@ -126,35 +103,43 @@ export default function UploadForm() {
     
     try {
       setIsUploading(true);
+      setProgress(0);
       
-      // Step 1: Upload to cloud storage and get URL
-      const videoUrl = await uploadToCloudStorage(file);
-      
-      // Step 2: Save video reference to database
+      // Upload video file directly to backend (which uploads to Google Drive)
       const token = localStorage.getItem('accessToken');
       if (!token) {
         throw new Error("Authentication token not found");
       }
-      
+
+      const formData = new FormData();
+      formData.append('video', file);
+
+      // Upload with progress tracking
       const response = await axios.post(
         `${backendUrl}/api/videos/upload`,
-        {
-          videoUrl
-          // playerProfileId removed
-        },
+        formData,
         {
           headers: {
-            'Authorization': `Bearer ${token}`
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'multipart/form-data'
+          },
+          onUploadProgress: (progressEvent) => {
+            if (progressEvent.total) {
+              const percentCompleted = Math.round(
+                (progressEvent.loaded * 100) / progressEvent.total
+              );
+              setProgress(percentCompleted);
+            }
           }
         }
       );
 
-      if (response.data.warning) {
-        console.warn(response.data.warning);
-        toast.info("Using test mode due to database connection issue");
+      // Save last uploaded video id so we can link ML metrics to this video
+      if (response.data?.id) {
+        setLastVideoId(response.data.id);
       }
 
-      toast.success("Video uploaded successfully! Analysis in progress.");
+      toast.success("Video uploaded to Google Drive successfully! You can now run AI analysis.");
       setUploadSuccess(true);
       
     } catch (error) {
@@ -163,6 +148,7 @@ export default function UploadForm() {
       if (axios.isAxiosError(error)) {
         toast.error(
           error.response?.data?.message || 
+          error.response?.data?.error ||
           "Failed to upload video. Please try again."
         );
       } else {
@@ -175,7 +161,7 @@ export default function UploadForm() {
 
   // Process video for analysis and redirect to player analysis page
   const handleProcessAnalysis = async () => {
-    const backendUrl=process.env.NEXT_PUBLIC_BACKEND_URL
+    const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
     try {
       if (!file) {
         toast.error("Missing file information");
@@ -183,45 +169,71 @@ export default function UploadForm() {
       }
 
       setIsUploading(true);
-      
+
       // Create form data for API call
       const formData = new FormData();
-      // Removed playerProfileId
-      formData.append('jerseyNumber', jerseyNumber);
-      formData.append('video', file, file.name);
-      
-      // Call the API to process the video
+      formData.append("jerseyNumber", jerseyNumber);
+      formData.append("video", file, file.name);
+      if (lastVideoId) {
+        formData.append("videoId", lastVideoId);
+      }
+
+      // Call the API to process the video (Node -> Python)
+      const token = localStorage.getItem("accessToken");
+      if (!token) {
+        toast.error("Authentication required. Please log in again.");
+        return;
+      }
+
       const response = await axios.post(
         `${backendUrl}/upload-performance-video`,
         formData,
         {
           headers: {
-            'Content-Type': 'multipart/form-data'
-          }
+            "Content-Type": "multipart/form-data",
+            Authorization: `Bearer ${token}`,
+          },
         }
       );
-      
-      // Store normalized metrics in localStorage for use in the analysis page
+
+      // Expect real stats coming from Python model
+      // e.g. metrics = { stats: { distance_covered, top_speed, pass_accuracy, dribble_success, shot_conversion, overall_accuracy, ... } }
       const metricsPayload = response.data?.metrics;
       if (metricsPayload) {
-        const stats = metricsPayload.stats || {};
-        const perf = metricsPayload.performanceMetrics || {};
+        const stats =
+          metricsPayload.stats ||
+          metricsPayload.player_stats || // in case backend forwards Python directly
+          metricsPayload ||
+          {};
 
         const parseNumber = (raw: unknown, unitSuffix?: string): number => {
-          if (typeof raw === 'number') return raw;
-          if (typeof raw === 'string') {
-            const cleaned = unitSuffix ? raw.replace(unitSuffix, '') : raw;
+          if (typeof raw === "number") return raw;
+          if (typeof raw === "string") {
+            const cleaned = unitSuffix ? raw.replace(unitSuffix, "") : raw;
             const parsed = parseFloat(cleaned);
             return isNaN(parsed) ? 0 : parsed;
           }
           return 0;
         };
 
-        // Python backend now returns distance_covered in meters, e.g. "905.35 m"
-        const distanceCovered = parseNumber(stats.distance_covered, ' m');
-        const topSpeed = parseNumber(stats.top_speed, ' km/h');
+        // Python backend returns distance_covered in meters, e.g. "905.35 m"
+        const distanceCovered = parseNumber(stats.distance_covered, " m");
+        const topSpeed = parseNumber(stats.top_speed, " km/h");
 
-        // Normalize stamina to 0–100 based on distance covered (meters)
+        // All these come directly from Python stats (no hard-coded fake values)
+        const dribbling =
+          typeof stats.dribble_success === "number" ? stats.dribble_success : 0;
+        const passing =
+          typeof stats.pass_accuracy === "number" ? stats.pass_accuracy : 0;
+        const shooting =
+          typeof stats.shot_conversion === "number" ? stats.shot_conversion : 0;
+
+        const overallAccuracy =
+          typeof stats.overall_accuracy === "number"
+            ? Math.max(0, Math.min(stats.overall_accuracy, 100))
+            : 0;
+
+        // Stamina is derived from real distance covered (logic-based but using real distance)
         const normalizeStamina = (distanceM: number): number => {
           if (!distanceM || distanceM <= 0) return 0;
           const referenceDistance = 1000; // 1 km → 100 stamina
@@ -229,40 +241,31 @@ export default function UploadForm() {
           return Math.max(0, Math.min(value, 100));
         };
 
-        const stamina =
-          typeof perf.stamina === 'number'
-            ? Math.max(0, Math.min(perf.stamina, 100))
-            : normalizeStamina(distanceCovered);
-
-        const overallAccuracy =
-          typeof stats.overall_accuracy === 'number'
-            ? Math.max(0, Math.min(stats.overall_accuracy, 100))
-            : 0;
+        const stamina = normalizeStamina(distanceCovered);
 
         const playerMetrics = {
-          id: perf.id ?? `temp-${Date.now()}`,
-          playerProfileId: perf.playerProfileId ?? '',
-          speed: perf.speed ?? topSpeed,
-          dribbling: perf.dribbling ?? stats.dribble_success ?? 0,
-          passing: perf.passing ?? stats.pass_accuracy ?? 0,
-          shooting: perf.shooting ?? stats.shot_conversion ?? 0,
+          id: `temp-${Date.now()}`,
+          playerProfileId: "",
+          speed: topSpeed,
+          dribbling,
+          passing,
+          shooting,
           stamina,
-          createdAt: perf.createdAt ?? new Date().toISOString(),
+          createdAt: new Date().toISOString(),
           distanceCovered,
           topSpeed,
           overallAccuracy,
         };
 
-        localStorage.setItem('playerMetrics', JSON.stringify(playerMetrics));
+        localStorage.setItem("playerMetrics", JSON.stringify(playerMetrics));
       }
-      
+
       toast.success("Performance metrics processed successfully!");
-      
+
       // Redirect to the player analysis page
-      router.push('/playeranalysis');
-      
+      router.push("/playeranalysis");
     } catch (error) {
-      console.error('Analysis processing failed:', error);
+      console.error("Analysis processing failed:", error);
       toast.error("Failed to process video analysis. Please try again.");
     } finally {
       setIsUploading(false);

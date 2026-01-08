@@ -48,8 +48,18 @@ interface Player {
     uploadedVideos?: Array<{
       id: string;
       videoUrl: string;
+      googleDriveFileId?: string;
       status: string;
       createdAt: string;
+      performanceMetrics?: Array<{
+        id: string;
+        speed: number;
+        dribbling: number;
+        passing: number;
+        shooting: number;
+        stamina: number;
+        createdAt: string;
+      }>;
     }>;
     scoutReports?: Array<{
       id: string;
@@ -74,6 +84,9 @@ export default function PlayerDetailPage() {
   const [isUnverified, setIsUnverified] = useState(false);
   const [verificationStatus, setVerificationStatus] = useState<string>('');
   const [verificationRemarks, setVerificationRemarks] = useState<string>('');
+  const [selectedVideoId, setSelectedVideoId] = useState<string | null>(null);
+  const [isVideoModalOpen, setIsVideoModalOpen] = useState(false);
+  const [isUpdatingSelection, setIsUpdatingSelection] = useState(false);
 
   useEffect(() => {
     const token = localStorage.getItem('accessToken');
@@ -129,6 +142,70 @@ export default function PlayerDetailPage() {
 
   // Note: Verification functionality has been moved to admin dashboard
   // Scouts can only view player details and select videos
+
+  const getVideoMetrics = (videoId: string) => {
+    const v = player?.playerProfile?.uploadedVideos?.find((vid) => vid.id === videoId);
+    const m = v?.performanceMetrics?.[0];
+    return m || null;
+  };
+
+  // Helper function to convert Google Drive view link to embed URL
+  const getEmbedUrl = (videoUrl: string, googleDriveFileId?: string) => {
+    // Use googleDriveFileId if available (more reliable)
+    if (googleDriveFileId) {
+      return `https://drive.google.com/file/d/${googleDriveFileId}/preview`;
+    }
+    // Fallback: Extract from URL
+    if (!videoUrl) return null;
+    // Extract file ID from Google Drive URL
+    // Format: https://drive.google.com/file/d/FILE_ID/view
+    const match = videoUrl.match(/\/d\/([a-zA-Z0-9_-]+)/);
+    if (match) {
+      return `https://drive.google.com/file/d/${match[1]}/preview`;
+    }
+    return videoUrl; // Fallback to original URL
+  };
+
+  const updateVideoSelection = async (
+    videoId: string,
+    status: "SELECTED" | "REJECTED"
+  ) => {
+    try {
+      setIsUpdatingSelection(true);
+      const backendUrl =
+        process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3000";
+      const token = localStorage.getItem("accessToken");
+      if (!token) {
+        toast.error("You must be logged in as a scout to update selections.");
+        return;
+      }
+
+      await axios.post(
+        `${backendUrl}/api/scout/videos/${videoId}/select`,
+        { status },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      toast.success(
+        status === "SELECTED"
+          ? "Video marked as SELECTED for this player."
+          : "Video marked as REJECTED."
+      );
+
+      await fetchPlayerDetails();
+      setIsVideoModalOpen(false);
+      setSelectedVideoId(null);
+    } catch (error) {
+      console.error("Failed to update video selection:", error);
+      toast.error("Failed to update video selection");
+    } finally {
+      setIsUpdatingSelection(false);
+    }
+  };
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -253,19 +330,18 @@ export default function PlayerDetailPage() {
               <h2 className="text-2xl font-bold text-white mb-6">Personal Details</h2>
               
               <div className="flex items-start gap-6 mb-6">
-                {player.profilePicture ? (
-                  <Image
-                    src={player.profilePicture}
-                    alt={player.name}
-                    width={96}
-                    height={96}
-                    className="w-24 h-24 rounded-full object-cover"
-                  />
-                ) : (
-                  <div className="w-24 h-24 rounded-full bg-zinc-800 flex items-center justify-center">
+                <div className="relative w-24 h-24 rounded-full bg-zinc-800 flex items-center justify-center overflow-hidden">
+                  {player.profilePicture ? (
+                    <Image
+                      src={player.profilePicture}
+                      alt={player.name}
+                      fill
+                      className="object-cover"
+                    />
+                  ) : (
                     <User className="h-12 w-12 text-zinc-400" />
-                  </div>
-                )}
+                  )}
+                </div>
                 <div>
                   <h3 className="text-2xl font-bold text-white mb-2">{player.name}</h3>
                   {getStatusBadge(player.verificationStatus)}
@@ -371,35 +447,48 @@ export default function PlayerDetailPage() {
             )}
 
             {/* Uploaded Videos */}
-            {player.playerProfile?.uploadedVideos && player.playerProfile.uploadedVideos.length > 0 && (
-              <div className="bg-zinc-950 rounded-xl p-6 border border-zinc-800">
-                <h2 className="text-2xl font-bold text-white mb-6 flex items-center gap-2">
-                  <Video className="h-6 w-6" />
-                  Uploaded Videos
-                </h2>
-                <div className="space-y-3">
-                  {player.playerProfile.uploadedVideos.map((video) => (
-                    <div key={video.id} className="bg-zinc-900 rounded-lg p-4">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="text-white font-medium">Video {video.id.slice(0, 8)}</p>
-                          <p className="text-zinc-400 text-sm">
-                            {new Date(video.createdAt).toLocaleDateString()}
-                          </p>
+            {player.playerProfile?.uploadedVideos &&
+              player.playerProfile.uploadedVideos.length > 0 && (
+                <div className="bg-zinc-950 rounded-xl p-6 border border-zinc-800">
+                  <h2 className="text-2xl font-bold text-white mb-6 flex items-center gap-2">
+                    <Video className="h-6 w-6" />
+                    Uploaded Videos
+                  </h2>
+                  <div className="space-y-3">
+                    {player.playerProfile.uploadedVideos.map((video) => (
+                      <button
+                        key={video.id}
+                        type="button"
+                        onClick={() => {
+                          setSelectedVideoId(video.id);
+                          setIsVideoModalOpen(true);
+                        }}
+                        className="w-full text-left bg-zinc-900 rounded-lg p-4 border border-zinc-800 hover:border-red-500 hover:bg-zinc-900/80 transition-colors"
+                      >
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="text-white font-medium">
+                              Video {video.id.slice(0, 8)}
+                            </p>
+                            <p className="text-zinc-400 text-sm">
+                              {new Date(video.createdAt).toLocaleDateString()}
+                            </p>
+                          </div>
+                          <span
+                            className={`px-3 py-1 rounded text-xs ${
+                              video.status === "ANALYZED"
+                                ? "bg-green-500/20 text-green-400"
+                                : "bg-yellow-500/20 text-yellow-400"
+                            }`}
+                          >
+                            {video.status}
+                          </span>
                         </div>
-                        <span className={`px-3 py-1 rounded text-xs ${
-                          video.status === 'ANALYZED' 
-                            ? 'bg-green-500/20 text-green-400' 
-                            : 'bg-yellow-500/20 text-yellow-400'
-                        }`}>
-                          {video.status}
-                        </span>
-                      </div>
-                    </div>
-                  ))}
+                      </button>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
           </div>
 
           {/* Right Column - Video Selection Info */}
@@ -424,6 +513,135 @@ export default function PlayerDetailPage() {
           </div>
         </div>
       </div>
+      {/* Video stats + selection modal */}
+      {isVideoModalOpen && selectedVideoId && (() => {
+        const selectedVideo = player?.playerProfile?.uploadedVideos?.find(
+          (vid) => vid.id === selectedVideoId
+        );
+        const metric = getVideoMetrics(selectedVideoId);
+        const embedUrl = selectedVideo?.videoUrl 
+          ? getEmbedUrl(selectedVideo.videoUrl, selectedVideo.googleDriveFileId) 
+          : null;
+
+        return (
+          <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/60 p-4">
+            <div className="w-full max-w-2xl bg-zinc-950 border border-zinc-800 rounded-xl p-6 relative max-h-[90vh] overflow-y-auto">
+              <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
+                <Video className="h-5 w-5" />
+                Video Stats & Selection
+              </h2>
+
+              {/* Embedded Video Player */}
+              {embedUrl && (
+                <div className="mb-4 rounded-lg overflow-hidden bg-black">
+                  <iframe
+                    src={embedUrl}
+                    width="100%"
+                    height="400"
+                    allow="autoplay"
+                    frameBorder="0"
+                    className="w-full"
+                    allowFullScreen
+                  />
+                </div>
+              )}
+
+              {/* Video Metrics */}
+              {metric ? (
+                <div className="grid grid-cols-2 gap-4 mb-4 text-sm">
+                  <div>
+                    <p className="text-zinc-400">Speed</p>
+                    <p className="text-white font-semibold">
+                      {metric.speed.toFixed(1)}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-zinc-400">Dribbling</p>
+                    <p className="text-white font-semibold">
+                      {metric.dribbling.toFixed(1)}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-zinc-400">Passing</p>
+                    <p className="text-white font-semibold">
+                      {metric.passing.toFixed(1)}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-zinc-400">Shooting</p>
+                    <p className="text-white font-semibold">
+                      {metric.shooting.toFixed(1)}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-zinc-400">Stamina</p>
+                    <p className="text-white font-semibold">
+                      {metric.stamina.toFixed(1)}
+                    </p>
+                  </div>
+                  <div className="col-span-2">
+                    <p className="text-zinc-500 text-xs">
+                      Recorded:{" "}
+                      {new Date(metric.createdAt).toLocaleDateString()}
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-zinc-400 text-sm mb-4">
+                  No detailed metrics found for this video yet. Make sure
+                  analysis has been run.
+                </p>
+              )}
+
+              <div className="flex items-center justify-between mt-4 gap-3 flex-wrap">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setIsVideoModalOpen(false);
+                    setSelectedVideoId(null);
+                  }}
+                  className="border-zinc-700 text-zinc-200 hover:bg-zinc-900"
+                >
+                  Close
+                </Button>
+                <div className="flex gap-2">
+                  {selectedVideo?.videoUrl && (
+                    <a
+                      href={selectedVideo.videoUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm inline-flex items-center gap-2"
+                    >
+                      <Video className="h-4 w-4" />
+                      Open in Google Drive
+                    </a>
+                  )}
+                  <Button
+                    disabled={isUpdatingSelection}
+                    onClick={() =>
+                      selectedVideoId &&
+                      updateVideoSelection(selectedVideoId, "REJECTED")
+                    }
+                    className="bg-red-600 hover:bg-red-700 text-white"
+                  >
+                    Mark Rejected
+                  </Button>
+                  <Button
+                    disabled={isUpdatingSelection}
+                    onClick={() =>
+                      selectedVideoId &&
+                      updateVideoSelection(selectedVideoId, "SELECTED")
+                    }
+                    className="bg-green-600 hover:bg-green-700 text-white"
+                  >
+                    Mark Selected
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </AppLayout>
   );
 }
