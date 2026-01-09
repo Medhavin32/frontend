@@ -64,6 +64,9 @@ export default function ProfilePage() {
   const [club, setClub] = useState('');
   const [nationality, setNationality] = useState('');
 
+  // Scout profile fields
+  const [clubName, setClubName] = useState('');
+
   useEffect(() => {
     const token = localStorage.getItem('accessToken');
     const user = localStorage.getItem('user');
@@ -108,6 +111,7 @@ export default function ProfilePage() {
       setProfilePicturePreview(userData.profilePicture || '');
       setVerificationStatus(userData.verificationStatus || 'PENDING');
       setVerificationRemarks(userData.verificationRemarks || '');
+      setClubName(userData.clubName || '');
 
       // Load player profile if user is a player
       if (userData.role === 'PLAYER' && userData.playerProfile) {
@@ -214,7 +218,8 @@ export default function ProfilePage() {
           state: state || undefined,
           country: country || undefined,
           pincode: pincode || undefined,
-          profilePicture: finalProfilePictureUrl || undefined
+          profilePicture: finalProfilePictureUrl || undefined,
+          clubName: userRole === 'scout' ? (clubName || undefined) : undefined
         },
         {
           headers: {
@@ -344,17 +349,16 @@ export default function ProfilePage() {
               <div className="bg-zinc-900 rounded-xl p-6 border border-zinc-800">
                 <div className="flex flex-col items-center">
                   <div className="relative w-40 h-40 rounded-full bg-zinc-800 border-4 border-red-600 flex items-center justify-center mb-4 overflow-hidden">
-                    {/* {profilePicturePreview ? (
+                    {profilePicturePreview || profilePictureUrl ? (
                       <Image
-                        src={profilePicturePreview}
+                        src={profilePicturePreview || profilePictureUrl}
                         alt="Profile"
                         fill
                         className="object-cover"
                       />
                     ) : (
                       <User className="w-16 h-16 text-zinc-500" />
-                    )} */}
-                    <User className="w-16 h-16 text-zinc-500" />
+                    )}
                   </div>
                   
                   {isEditing && (
@@ -507,6 +511,32 @@ export default function ProfilePage() {
                     </div>
                   </div>
                 </div>
+
+                {/* Scout Details (only for scouts) */}
+                {userRole === 'scout' && (
+                  <div className="bg-zinc-900 rounded-xl p-6 border border-zinc-800">
+                    <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                      <Award className="h-5 w-5 text-red-500" />
+                      Scout Details
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-zinc-300 text-sm mb-2">Club Name</label>
+                        {isEditing ? (
+                          <input 
+                            type="text"
+                            value={clubName}
+                            onChange={(e) => setClubName(e.target.value)}
+                            placeholder="Enter your club name"
+                            className="w-full p-3 bg-zinc-950 text-white border border-zinc-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-600"
+                          />
+                        ) : (
+                          <p className="text-white p-3 bg-zinc-950 rounded-lg border border-zinc-800">{clubName || 'N/A'}</p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 {/* Player Details (only for players) */}
                 {userRole === 'player' && (

@@ -21,6 +21,7 @@ import { toast } from "sonner";
 import AppLayout from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
+import { calculateOverallRating } from "@/lib/calculateOverallRating";
 
 interface PlayerMetrics {
   id?: string;
@@ -165,21 +166,15 @@ function AnalysisContent() {
     createdAt: metrics.createdAt ?? new Date().toISOString(),
   };
 
-  // Compute overall rating from raw metrics (purely presentation, still based on real stats)
-  const overallRaw =
-    (safeMetrics.speed +
-      safeMetrics.dribbling * 10 +
-      safeMetrics.passing * 10 +
-      safeMetrics.shooting * 10 +
-      safeMetrics.stamina +
-      safeMetrics.distanceCovered / 10) / 5;
-
-  const overallClamped = Math.max(
-    0,
-    Math.min(100, isNaN(overallRaw) ? 0 : overallRaw)
-  );
-
-  const overallRating = 70 + (overallClamped / 100) * 10;
+  // Compute overall rating using production-grade formula
+  const overallRating = calculateOverallRating({
+    speed: safeMetrics.speed,
+    stamina: safeMetrics.stamina,
+    dribbling: safeMetrics.dribbling,
+    passing: safeMetrics.passing,
+    shooting: safeMetrics.shooting,
+    distanceCovered: safeMetrics.distanceCovered,
+  });
 
   // Prepare data for radar chart (all from real metrics)
   const radarData = [

@@ -145,10 +145,10 @@ export default function Login() {
       if (axios.isAxiosError(error)) {
         if (error.response) {
           // The request was made and the server responded with a status code
-          toast.error(
-            error.response.data.message || 
-            "Login failed. Please check your credentials."
-          );
+          const errorMessage = error.response.data.message || 
+                              error.response.data.error || 
+                              "Login failed. Please check your credentials.";
+          toast.error(errorMessage);
         } else if (error.request) {
           // The request was made but no response was received
           toast.error("No response from server. Please check your internet connection.");
