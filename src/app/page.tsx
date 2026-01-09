@@ -42,9 +42,9 @@ export default function Home() {
 
           <div className="relative z-10 px-6 py-8 md:px-10 md:py-12 flex flex-col md:flex-row gap-8 items-center">
             <div className="flex-1">
-              <div className="mb-4">
+              {/* <div className="mb-4">
                 <Timer />
-              </div>
+              </div> */}
 
               <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold text-white mb-4">
                 Transforming <span className="text-red-500">Footage</span> into Future<br />
