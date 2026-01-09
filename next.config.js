@@ -1,8 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Removed 'output: export' to support dynamic routes
-  // If you need static export, consider using ISR or removing dynamic routes
-  distDir: 'out',
+
   images: {
     unoptimized: true,
     domains: [
@@ -39,3 +37,4 @@ const nextConfig = {
 };
 
 module.exports = nextConfig;
+
