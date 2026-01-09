@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 import {
   BarChart,
   Bar,
@@ -36,7 +36,17 @@ interface PlayerMetrics {
   overallAccuracy?: number;
 }
 
-export default function PlayerAnalysis() {
+function LoadingFallback() {
+  return (
+    <AppLayout>
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="text-zinc-300">Loading analysis data...</div>
+      </div>
+    </AppLayout>
+  );
+}
+
+function AnalysisContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [metrics, setMetrics] = useState<PlayerMetrics | null>(null);
@@ -116,13 +126,7 @@ export default function PlayerAnalysis() {
   };
 
   if (loading) {
-    return (
-      <AppLayout>
-        <div className="flex items-center justify-center min-h-[60vh]">
-          <div className="text-zinc-300">Loading analysis data...</div>
-        </div>
-      </AppLayout>
-    );
+    return <LoadingFallback />;
   }
 
   if (!metrics) {
@@ -514,5 +518,13 @@ export default function PlayerAnalysis() {
         </div>
       </div>
     </AppLayout>
+  );
+}
+
+export default function PlayerAnalysis() {
+  return (
+    <Suspense fallback={<LoadingFallback />}>
+      <AnalysisContent />
+    </Suspense>
   );
 }
