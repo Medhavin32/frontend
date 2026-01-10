@@ -8,6 +8,7 @@ import { useState } from "react";
 import axios, { AxiosError } from "axios";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
+import { Eye, EyeOff } from "lucide-react";
 
 export default function Signup() {
   const router = useRouter();
@@ -18,6 +19,7 @@ export default function Signup() {
     userRole: null as 'scout' | 'player' | null,
     clubName: '' // For scouts
   });
+  const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [roleSelected, setRoleSelected] = useState(false);
 
@@ -238,16 +240,30 @@ export default function Signup() {
               {/* Password Input */}
               <div>
                 <Label htmlFor="password" className="text-white">Password</Label>
-                <Input 
-                  type="password" 
-                  id="password"
-                  name="password"
-                  placeholder="Create a strong password"
-                  value={formData.password}
-                  onChange={handleInputChange}
-                  required
-                  className="mt-2 bg-zinc-900 border-zinc-800 text-white focus:ring-red-600"
-                />
+                <div className="relative mt-2">
+                  <Input 
+                    type={showPassword ? "text" : "password"} 
+                    id="password"
+                    name="password"
+                    placeholder="Create a strong password"
+                    value={formData.password}
+                    onChange={handleInputChange}
+                    required
+                    className="pr-10 bg-zinc-900 border-zinc-800 text-white focus:ring-red-600"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-white transition-colors"
+                    aria-label={showPassword ? "Hide password" : "Show password"}
+                  >
+                    {showPassword ? (
+                      <EyeOff className="h-5 w-5" />
+                    ) : (
+                      <Eye className="h-5 w-5" />
+                    )}
+                  </button>
+                </div>
               </div>
 
               {/* Club Name Input (for scouts only) */}
